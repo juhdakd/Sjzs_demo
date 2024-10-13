@@ -6,7 +6,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @SpringBootApplication()
-@EnableOpenApi
 @EnableWebMvc
 @MapperScan("com.example.demo.Dao")
 public class DemoApplication {

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Submission with Image</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="file"], button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Submit a Mission with Optional Image</h2>
+        <form id="missionForm" enctype="multipart/form-data">
+            <label for="mission">Mission Text</label>
+            <input type="text" id="mission" name="mission" placeholder="Enter the mission text" required>
+
+            <label for="image">Upload Image (optional)</label>
+            <input type="file" id="image" name="image" accept="image/*">
+
+            <button type="submit">Submit</button>
+        </form>
+        
+        <div id="response" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('missionForm');
+        const responseDiv = document.getElementById('response');
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();  // Prevent default form submission
+
+            const formData = new FormData(form);
+
+            // Send data to the server using Fetch API
+            fetch('http://localhost:8080/mission/inputwithimage', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display the response in the page
+                responseDiv.innerHTML = '<h4>Submission Response:</h4>' + 
+                                        '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                responseDiv.innerHTML = '<p style="color:red;">Failed to submit mission.</p>';
+            });
+        });
+    </script>
+
+</body>
+</html>
