@@ -1,10 +1,13 @@
 package com.example.demo.Service;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,7 @@ import com.example.demo.Entity.Object_feature;
 import com.example.demo.Entity.Returntype;
 import com.example.demo.Entity.Submission;
 import com.example.demo.Interface.LLMInterface;
+import com.example.demo.Interface.outputtojson;
 
 import jakarta.annotation.Resource;
 
@@ -59,8 +63,49 @@ public class MissionService {
         return submissionJson;
     }
 
-    public List<Returntype> getAll() {
-        return missionDao.getAll();
+    public List<Submission> getAll() {
+        // 从数据库获取所有 mission 数据
+        List<Returntype> listReturntypes = missionDao.getAll();
+        System.out.println("listReturntypes: " + listReturntypes.toString());
+
+        // 用来存储所有的 Submission 对象
+        Map<String, Submission> submissionMap = new HashMap<>();
+
+        // 遍历所有的 Returntype 对象
+        for (Returntype returntype : listReturntypes) {
+            String threadId = returntype.getThread_id();
+
+            // 如果 submissionMap 中还没有该 thread_id 的 Submission，则创建并添加
+            if (!submissionMap.containsKey(threadId)) {
+                Submission submission = new Submission();
+                submission.setSubmission_id(returntype.getSubmission_id());
+                submission.setThread_id(returntype.getThread_id());
+                submission.setFly_type(returntype.getFly_type());
+                submission.setFly_object(returntype.getFly_object());
+
+                // 添加到 map 中
+                submissionMap.put(threadId, submission);
+            }
+
+            // 获取当前的 Submission
+            Submission currentSubmission = submissionMap.get(threadId);
+
+            // 为当前 Submission 创建 Object_feature 对象，并添加到 fly_object_feature 列表中
+            Object_feature objectFeature = new Object_feature();
+            objectFeature.setName(returntype.getName());
+            objectFeature.setValue(returntype.getValue());
+
+            // 如果当前 Submission 的 feature 列表为空，则初始化列表
+            if (currentSubmission.getFly_object_feature() == null) {
+                currentSubmission.setFly_object_feature(new ArrayList<>());
+            }
+
+            // 添加 Object_feature 对象到 Submission 的 fly_object_feature 列表
+            currentSubmission.getFly_object_feature().add(objectFeature);
+        }
+
+        // 将 map 中所有的 Submission 转换为 List 并返回
+        return new ArrayList<>(submissionMap.values());
     }
 
     // 更改=重新输入信息，update对应的text 并删除对应的submission 添加新的submission
@@ -102,7 +147,6 @@ public class MissionService {
         }
 
         // 创建 Object_feature 列表
-        // 创建 Object_feature 列表
         List<Object_feature> objectFeatures = new ArrayList<>();
 
         // 遍历 Returntype 列表，提取 name 和 value 并创建 Object_feature 对象
@@ -119,14 +163,13 @@ public class MissionService {
         return submission;
     }
 
-
     public Submission inputMissionWithImage(String mainMission, MultipartFile imageFile) throws IOException {
-        // Generate a unique thread ID using the current timestamp
+        // 使用时间生成一个特定的编号 时间戳
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
         String thread_id = now.format(formatter);
 
-        // Save the mission text to the database
+        // 创建并保存 Mission 对象
         Mission mission = new Mission();
         mission.setText(mainMission);
         mission.setThread_id(thread_id);
@@ -134,28 +177,42 @@ public class MissionService {
 
         System.out.println("Mission: " + mission.toString());
 
-        // Handle the image upload if provided
-        // if (imageFile != null && !imageFile.isEmpty()) {
-        //     // Save the image to the file system or database
-        //     // String imagePath = saveImage(imageFile);  // Implement image saving logic
-        //     System.out.println("Image Path:);
-        //     //mission.setImagePath(imagePath);  // Optionally store the image path in the mission
-        // }
+        String imagePath=null;
+        // 处理图片文件上传
+        if (imageFile != null && !imageFile.isEmpty()) {
+            // 保存图片文件并返回文件路径
+            imagePath = saveImage(imageFile,mission.getThread_id());
+            System.out.println("Image Path: " + imagePath);
+        }
+        System.out.println("开始发送请求");
+        // 发送 POST 请求到外部接口，附带图片
+        Submission submissionJson = llmInterface.sendPostRequestWithImage(mission, imagePath);
 
-        // Send POST request and get submission response
-        Submission submissionJson = llmInterface.sendPostRequestWithImage(mission, imageFile);
-
-        // Save Submission to the database
+        outputtojson outjson=new outputtojson();
+        // 将 Submission 数据插入数据库
         missionDao.addSubmission(submissionJson);
         int submissionJsonId = missionDao.getsubmissionid(submissionJson);
-        submissionJson.setSubmission_id(submissionJsonId);
-
-        // Save Object_feature data for each feature
+        //为啥是0呢？
+        submissionJson.setSubmission_id(submissionJsonId);        
+        // 将 Object_feature 数据插入数据库
         for (Object_feature feature : submissionJson.getFly_object_feature()) {
             feature.setSubmission_id(submissionJsonId);
             missionDao.addFeature(submissionJsonId, feature);
         }
 
+        System.out.println("返回的Submission: " + outjson.formatSubmissionToJson(submissionJson));
         return submissionJson;
+    }
+
+    // 保存图片到文件系统或数据库
+    private String saveImage(MultipartFile imageFile,String thread_id) throws IOException {
+        String folder = "E:\\Learnn\\数聚智算平台\\demo\\src\\main\\resources\\static\\image\\";
+        String fileName = thread_id + ".jpg";    
+        String filePath = folder + fileName;
+
+        File dest = new File(filePath);
+        imageFile.transferTo(dest);
+
+        return filePath;
     }
 }
