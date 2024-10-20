@@ -38,18 +38,18 @@ public class MissionController {
      */
     // 添加mission
     @PostMapping("/input")
-    public Result input(String mission) {
+    public Result input(Mission mission) {
         return Result.success(missionService.input(mission));
     }
 
     // 处理带有图片的请求
     @PostMapping("/inputwithimage")
     public Result inputMissionWithImage(
-            @RequestParam("mission") String mainMission,
+            @RequestParam Mission mission,
             @RequestParam(value = "image", required = false) MultipartFile imageFile) {
         try {
             // 调用 service 处理 mission 和 image
-            Submission submission = missionService.inputMissionWithImage(mainMission, imageFile);
+            Submission submission = missionService.inputMissionWithImage(mission, imageFile);
             return Result.success(submission);
         } catch (IOException e) {
             return Result.fail("fail load image");

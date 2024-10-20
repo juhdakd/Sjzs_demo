@@ -32,19 +32,15 @@ public class MissionService {
     @Autowired
     private LLMInterface llmInterface;
 
-    public Object input(String mainMission) {
+    public Object input(Mission mission) {
         // 使用时间生成一个特定的编号 时间戳
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
         String thread_id = now.format(formatter);
-
-        // 将输入存入数据库
-        Mission mission = new Mission();
-        mission.setText(mainMission);
         mission.setThread_id(thread_id);
-        missionDao.input(thread_id, mainMission);
+        missionDao.input(mission);
+        mission.setStatus("未执行");
 
-        System.out.println("mission:" + mission.toString());
         Submission submissionJson = llmInterface.sendPostRequest(mission);
 
         // 将 Submission 数据插入数据库
@@ -59,7 +55,6 @@ public class MissionService {
             feature.setSubmission_id(submissionJsonId);
             missionDao.addFeature(submissionJsonId, feature);
         }
-
         return submissionJson;
     }
 
@@ -108,13 +103,13 @@ public class MissionService {
         return new ArrayList<>(submissionMap.values());
     }
 
-    // 更改=重新输入信息，update对应的text 并删除对应的submission 添加新的submission
+    // 更改=重新输入信息，update对应的mission 并删除对应的submission 添加新的submission
     public Submission update(Mission mission) {
         // 处理新的输入信息
-        // 更新mission的text
-        missionDao.updatemission(mission);
         // 删除对应的submission
         missionDao.deleteSubmission(mission);
+        // 更新mission的text
+        missionDao.updatemission(mission);
         // 将新的Submission信息存储到数据库
         Submission newsubmission = llmInterface.sendPostRequest(mission);
         missionDao.addSubmission(newsubmission);
@@ -163,37 +158,33 @@ public class MissionService {
         return submission;
     }
 
-    public Submission inputMissionWithImage(String mainMission, MultipartFile imageFile) throws IOException {
+    public Submission inputMissionWithImage(Mission mission, MultipartFile imageFile) throws IOException {
         // 使用时间生成一个特定的编号 时间戳
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
         String thread_id = now.format(formatter);
-
-        // 创建并保存 Mission 对象
-        Mission mission = new Mission();
-        mission.setText(mainMission);
         mission.setThread_id(thread_id);
-        missionDao.input(thread_id, mainMission);
+        missionDao.input(mission);
 
         System.out.println("Mission: " + mission.toString());
 
-        String imagePath=null;
+        String imagePath = null;
         // 处理图片文件上传
         if (imageFile != null && !imageFile.isEmpty()) {
             // 保存图片文件并返回文件路径
-            imagePath = saveImage(imageFile,mission.getThread_id());
+            imagePath = saveImage(imageFile, mission.getThread_id());
             System.out.println("Image Path: " + imagePath);
         }
         System.out.println("开始发送请求");
         // 发送 POST 请求到外部接口，附带图片
         Submission submissionJson = llmInterface.sendPostRequestWithImage(mission, imagePath);
 
-        outputtojson outjson=new outputtojson();
+        outputtojson outjson = new outputtojson();
         // 将 Submission 数据插入数据库
         missionDao.addSubmission(submissionJson);
         int submissionJsonId = missionDao.getsubmissionid(submissionJson);
-        //为啥是0呢？
-        submissionJson.setSubmission_id(submissionJsonId);        
+        // 为啥是0呢？
+        submissionJson.setSubmission_id(submissionJsonId);
         // 将 Object_feature 数据插入数据库
         for (Object_feature feature : submissionJson.getFly_object_feature()) {
             feature.setSubmission_id(submissionJsonId);
@@ -205,9 +196,9 @@ public class MissionService {
     }
 
     // 保存图片到文件系统或数据库
-    private String saveImage(MultipartFile imageFile,String thread_id) throws IOException {
+    private String saveImage(MultipartFile imageFile, String thread_id) throws IOException {
         String folder = "E:\\Learnn\\数聚智算平台\\demo\\src\\main\\resources\\static\\image\\";
-        String fileName = thread_id + ".jpg";    
+        String fileName = thread_id + ".jpg";
         String filePath = folder + fileName;
 
         File dest = new File(filePath);
