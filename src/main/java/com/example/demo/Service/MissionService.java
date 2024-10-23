@@ -19,6 +19,7 @@ import com.example.demo.Entity.Object_feature;
 import com.example.demo.Entity.Returntype;
 import com.example.demo.Entity.Submission;
 import com.example.demo.Interface.LLMInterface;
+import com.example.demo.Interface.MissionManagement;
 import com.example.demo.Interface.outputtojson;
 
 import jakarta.annotation.Resource;
@@ -31,6 +32,9 @@ public class MissionService {
 
     @Autowired
     private LLMInterface llmInterface;
+
+    @Autowired
+    private MissionManagement missionManagement;
 
     public Object input(Mission mission) {
         // 使用时间生成一个特定的编号 时间戳
@@ -55,6 +59,7 @@ public class MissionService {
             feature.setSubmission_id(submissionJsonId);
             missionDao.addFeature(submissionJsonId, feature);
         }
+
         return submissionJson;
     }
 
@@ -205,5 +210,21 @@ public class MissionService {
         imageFile.transferTo(dest);
 
         return filePath;
+    }
+
+    public String GetMap(Mission mission) {
+        String Map = new String();
+        // 将任务分配给 对应的无人机 去执行
+        if (mission.getMission_type().equals("紧急任务")) {
+            Map=missionManagement.handleEmergencyTask(mission.getCurrent_latitude(), mission.getCurrent_longitude(),
+                    mission.getLength(), mission.getWidth(), mission.getDeadline());
+        } else if (mission.getMission_type().equals("常规任务")) {
+            Map=missionManagement.handleRegularTask(mission.getCurrent_latitude(), mission.getCurrent_longitude(),
+                    mission.getLength(), mission.getWidth());
+        }
+
+        // 将Map存储到数据库
+        missionDao.inputMap(mission.getThread_id(),Map);
+        return Map;
     }
 }

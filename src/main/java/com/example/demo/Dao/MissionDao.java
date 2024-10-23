@@ -63,4 +63,7 @@ public interface MissionDao {
         @Select("SELECT * FROM mission WHERE status = '执行中'")
         List<Mission> getActiveMissions();
 
+        @Insert("insert into map(thread_id, map) values(#{thread_id},#{Map})")
+        void inputMap(String thread_id, String Map);
+
 }
