@@ -61,8 +61,10 @@ public class LLMInterface {
 
                 String flyType = taskNode.get("fly_type").asText();
                 String flyObject = taskNode.get("fly_object").asText();
+                String ask=taskNode.get("ask").asText();
                 JsonNode flyObjectFeatureNode = taskNode.get("fly_object_feature");
                 // 设置 Submission 对象的属性
+                submission.setAsk(ask);
                 submission.setFly_type(flyType);
                 submission.setFly_object(flyObject);
 

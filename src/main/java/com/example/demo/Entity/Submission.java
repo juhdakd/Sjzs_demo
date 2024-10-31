@@ -25,7 +25,10 @@ public class Submission {
     @Transient
     private List<Object_feature> fly_object_feature;
 
-    
+    //大模型 返回信息
+    //不在数据库 中
+    @Transient
+    private String ask;
     public String getFly_type() {
         return fly_type;
     }
@@ -66,11 +69,19 @@ public class Submission {
         this.fly_object_feature = fly_object_feature;
     }
 
+    public String getAsk() {
+        return ask;
+    }
+
+    public void setAsk(String ask) {
+        this.ask = ask;
+    }
+
     @Override
     public String toString() {
         return "Submission [submission_id=" + submission_id + ", fly_type=" + fly_type + ", fly_object=" + fly_object
-                + ", thread_id=" + thread_id + ", fly_object_feature=" + fly_object_feature + "]";
+                + ", thread_id=" + thread_id + ", fly_object_feature=" + fly_object_feature + ", ask=" + ask + "]";
     }
-
+    
     
 }

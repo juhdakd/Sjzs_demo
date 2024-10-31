@@ -5,11 +5,13 @@ import java.io.IOException;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.demo.Entity.LLM_Response;
 import com.example.demo.Entity.Mission;
 import com.example.demo.Entity.Result;
 import com.example.demo.Entity.Submission;
@@ -23,33 +25,21 @@ import jakarta.annotation.Resource;
 public class MissionController {
     @Resource
     private MissionService missionService;
-
-    /*
-     * 目前完成的任务：
-     * 1、输入mision 将mission和大模型对接 并将返回的Submission存储到数据库中 展示
-     * 2、更新mission 并将对应的Submission信息更新到数据库中
-     * 3、删除mission 并将对应的Submission信息删除
-     * 
-     * 下一步工作：
-     * 
-     * 1、其他板块的对接
-     * 2、map 路径 数据 的获取和存储
-     * 
-     */
     // 添加mission
     @PostMapping("/input")
-    public Result input(Mission mission) {
-        return Result.success(missionService.input(mission));
+    public Result input(Mission mission,boolean is_submit) {
+        return Result.success(missionService.input(mission,is_submit));
     }
 
     // 处理带有图片的请求
     @PostMapping("/inputwithimage")
     public Result inputMissionWithImage(
             @RequestParam Mission mission,
+            @RequestParam boolean is_submit,
             @RequestParam(value = "image", required = false) MultipartFile imageFile) {
         try {
             // 调用 service 处理 mission 和 image
-            Submission submission = missionService.inputMissionWithImage(mission, imageFile);
+            Submission submission = missionService.inputMissionWithImage(mission, is_submit,imageFile);
             return Result.success(submission);
         } catch (IOException e) {
             return Result.fail("fail load image");
@@ -79,5 +69,18 @@ public class MissionController {
     public Result get(Mission mission) {
         return Result.success(missionService.get(mission.getThread_id()));
     }
+    // 获得紧急地图
+    @PostMapping("/getEmer_Map")
+    public Result getEmer_Map(Mission mission) {
+        return Result.success(missionService.GetEmergency_Map(mission));
+    }
 
+    @PostMapping("/input")
+    public Result input(@RequestBody LLM_Response request) {
+        System.out.println(request.thread_id);
+        System.out.println(request.text);
+        String reString=missionService.LLM_Chat(request.thread_id, request.text);
+        //String reString="好";
+        return Result.success(reString);
+    }
 }

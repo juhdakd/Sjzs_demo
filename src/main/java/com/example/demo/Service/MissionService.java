@@ -21,6 +21,7 @@ import com.example.demo.Entity.Submission;
 import com.example.demo.Interface.LLMInterface;
 import com.example.demo.Interface.MissionManagement;
 import com.example.demo.Interface.outputtojson;
+import com.example.demo.Interface.LLM_Chat;
 
 import jakarta.annotation.Resource;
 
@@ -35,31 +36,39 @@ public class MissionService {
 
     @Autowired
     private MissionManagement missionManagement;
+    
+    @Autowired
+    private LLM_Chat llm_chat;
 
-    public Object input(Mission mission) {
+    public Object input(Mission mission, boolean is_submit) {
         // 使用时间生成一个特定的编号 时间戳
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
-        String thread_id = now.format(formatter);
-        mission.setThread_id(thread_id);
-        missionDao.input(mission);
-        mission.setStatus("未执行");
-
+        // 如果新建的mission,则插入数据库
+        if (mission.getThread_id() == null) {
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
+            String thread_id = now.format(formatter);
+            mission.setThread_id(thread_id);
+            missionDao.input(mission);
+            mission.setStatus("未执行");
+        }
         Submission submissionJson = llmInterface.sendPostRequest(mission);
 
-        // 将 Submission 数据插入数据库
-        missionDao.addSubmission(submissionJson);
-        // 获取生成的 submission_id
-        int submissionJsonId = missionDao.getsubmissionid(submissionJson);
-        System.out.println("测试：" + submissionJsonId);
+        // 如果提交后，将数据插入数据库
+        if (is_submit) {
+            // 将 Submission 数据插入数据库
+            missionDao.addSubmission(submissionJson);
+            // 获取生成的 submission_id
+            int submissionJsonId = missionDao.getsubmissionid(submissionJson);
+            System.out.println("测试：" + submissionJsonId);
 
-        submissionJson.setSubmission_id(submissionJsonId);
-        // 将 Object_feature 数据插入数据库
-        for (Object_feature feature : submissionJson.getFly_object_feature()) {
-            feature.setSubmission_id(submissionJsonId);
-            missionDao.addFeature(submissionJsonId, feature);
+            submissionJson.setSubmission_id(submissionJsonId);
+            // 将 Object_feature 数据插入数据库
+            for (Object_feature feature : submissionJson.getFly_object_feature()) {
+                feature.setSubmission_id(submissionJsonId);
+                missionDao.addFeature(submissionJsonId, feature);
+            }
         }
-
+        // 下次请求时应当带上 submission中的thread_id
         return submissionJson;
     }
 
@@ -163,46 +172,58 @@ public class MissionService {
         return submission;
     }
 
-    public Submission inputMissionWithImage(Mission mission, MultipartFile imageFile) throws IOException {
+    public Submission inputMissionWithImage(Mission mission, boolean is_submit, MultipartFile imageFile)
+            throws IOException {
         // 使用时间生成一个特定的编号 时间戳
-        LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
-        String thread_id = now.format(formatter);
-        mission.setThread_id(thread_id);
-        missionDao.input(mission);
-
-        System.out.println("Mission: " + mission.toString());
-
+        if (mission.getThread_id() == null) {
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
+            String thread_id = now.format(formatter);
+            mission.setThread_id(thread_id);
+            missionDao.input(mission);
+            System.out.println("Mission: " + mission.toString());
+        }
         String imagePath = null;
         // 处理图片文件上传
         if (imageFile != null && !imageFile.isEmpty()) {
-            // 保存图片文件并返回文件路径
-            imagePath = saveImage(imageFile, mission.getThread_id());
-            System.out.println("Image Path: " + imagePath);
+            // 获取图片的保存路径
+            imagePath = getImagePath(mission.getThread_id());
+
+            File file = new File(imagePath);
+            // 检查是否已存在相同的图片文件
+            if (!file.exists()) {
+                // 如果文件不存在，则保存图片并返回文件路径
+                imagePath = saveImage(imageFile, mission.getThread_id());
+                System.out.println("Image saved at path: " + imagePath);
+            } else {
+                System.out.println("Image already exists at path: " + imagePath);
+            }
         }
         System.out.println("开始发送请求");
         // 发送 POST 请求到外部接口，附带图片
         Submission submissionJson = llmInterface.sendPostRequestWithImage(mission, imagePath);
 
-        outputtojson outjson = new outputtojson();
-        // 将 Submission 数据插入数据库
-        missionDao.addSubmission(submissionJson);
-        int submissionJsonId = missionDao.getsubmissionid(submissionJson);
-        // 为啥是0呢？
-        submissionJson.setSubmission_id(submissionJsonId);
-        // 将 Object_feature 数据插入数据库
-        for (Object_feature feature : submissionJson.getFly_object_feature()) {
-            feature.setSubmission_id(submissionJsonId);
-            missionDao.addFeature(submissionJsonId, feature);
+        if (is_submit) {
+            outputtojson outjson = new outputtojson();
+            // 将 Submission 数据插入数据库
+            missionDao.addSubmission(submissionJson);
+            int submissionJsonId = missionDao.getsubmissionid(submissionJson);
+            // 为啥是0呢？
+            submissionJson.setSubmission_id(submissionJsonId);
+            // 将 Object_feature 数据插入数据库
+            for (Object_feature feature : submissionJson.getFly_object_feature()) {
+                feature.setSubmission_id(submissionJsonId);
+                missionDao.addFeature(submissionJsonId, feature);
+            }
+            System.out.println("返回的Submission: " + outjson.formatSubmissionToJson(submissionJson));
         }
-
-        System.out.println("返回的Submission: " + outjson.formatSubmissionToJson(submissionJson));
         return submissionJson;
     }
 
     // 保存图片到文件系统或数据库
     private String saveImage(MultipartFile imageFile, String thread_id) throws IOException {
-        String folder = "E:\\Learnn\\数聚智算平台\\demo\\src\\main\\resources\\static\\image\\";
+        // 使用相对路径获取目标文件夹的绝对路径
+        String folder = new File("src/main/resources/static/image/").getAbsolutePath();
         String fileName = thread_id + ".jpg";
         String filePath = folder + fileName;
 
@@ -212,19 +233,37 @@ public class MissionService {
         return filePath;
     }
 
-    public String GetMap(Mission mission) {
+    private String getImagePath(String threadId) {
+        String folder = new File("src/main/resources/static/image/").getAbsolutePath();
+        String fileName = threadId + ".jpg";
+        return folder + fileName;
+    }
+
+    public String GetEmergency_Map(Mission mission) {
         String Map = new String();
         // 将任务分配给 对应的无人机 去执行
         if (mission.getMission_type().equals("紧急任务")) {
-            Map=missionManagement.handleEmergencyTask(mission.getCurrent_latitude(), mission.getCurrent_longitude(),
+            Map = missionManagement.handleEmergencyTask(mission.getCurrent_latitude(), mission.getCurrent_longitude(),
                     mission.getLength(), mission.getWidth(), mission.getDeadline());
         } else if (mission.getMission_type().equals("常规任务")) {
-            Map=missionManagement.handleRegularTask(mission.getCurrent_latitude(), mission.getCurrent_longitude(),
+            Map = missionManagement.handleRegularTask(mission.getCurrent_latitude(), mission.getCurrent_longitude(),
                     mission.getLength(), mission.getWidth());
         }
 
         // 将Map存储到数据库
-        missionDao.inputMap(mission.getThread_id(),Map);
+        missionDao.inputMap(mission.getThread_id(), Map);
         return Map;
+    }
+
+    //处理大模型交互
+    public String LLM_Chat(String thread_id,String text) {
+        if(thread_id==null){
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyMMddHHmmss");
+            thread_id = now.format(formatter);
+        }
+        
+        String reString=llm_chat.sendPostRequest(thread_id,text);
+        return reString;
     }
 }

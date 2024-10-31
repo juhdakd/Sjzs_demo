@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 @SpringBootApplication()
 @EnableWebMvc
 @MapperScan("com.example.demo.Dao")
-@EnableScheduling // 开启定时任务 检测是否有任务超时
+// @EnableScheduling // 开启定时任务 检测是否有任务超时
 public class DemoApplication {
 
 	public static void main(String[] args) {

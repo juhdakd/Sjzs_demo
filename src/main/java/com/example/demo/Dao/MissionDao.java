@@ -65,5 +65,4 @@ public interface MissionDao {
 
         @Insert("insert into map(thread_id, map) values(#{thread_id},#{Map})")
         void inputMap(String thread_id, String Map);
-
 }

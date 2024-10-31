@@ -19,6 +19,7 @@ public class MissionManagement {
         return instance;
     }
 
+    
     // 处理应急任务的方法
     public String handleEmergencyTask(double latitude, double longitude, double mapLength, double mapWidth, String time) {
         // 构造地图API的URL
